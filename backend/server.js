@@ -86,8 +86,7 @@ app.get('/dashboard', (req, res) => res.sendFile(path.join(pagesDir, 'dashboard.
 app.get('/room/:id', (req, res) => res.sendFile(path.join(pagesDir, 'room.html')));
 app.get('/history', (req, res) => res.sendFile(path.join(pagesDir, 'history.html')));
 app.get('/guild-war', (req, res) => res.sendFile(path.join(pagesDir, 'guild-war.html')));
-app.get('/guild-war/team/:id', (req, res) => res.sendFile(path.join(pagesDir, 'guild-war-team.html'));
-});
+app.get('/guild-war/team/:id', (req, res) => res.sendFile(path.join(pagesDir, 'guild-war-team.html')));
 app.get('/guild-war/force/:id', (req, res) => {
   if (!req.session.userId) return res.redirect('/login');
   res.sendFile(path.join(pagesDir, 'guild-war-force.html'));
