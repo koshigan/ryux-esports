@@ -1,6 +1,9 @@
 // utils/auctionSocket.js - Real-time auction engine via Socket.io
 const db = require('../config/db');
+const jwt = require('jsonwebtoken');
 const { validateBid } = require('../middleware/validate');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'ryux-jwt-secret-2024';
 
 /**
  * In-memory auction state per room (cleared when server restarts)
@@ -13,15 +16,19 @@ const auctionState = {};
 
 module.exports = function setupAuctionSocket(io) {
 
-  // Socket.io session middleware - read session cookie
+  // Socket.io JWT middleware - read token from cookie
   io.use((socket, next) => {
-    const session = socket.request.session;
-    if (session && session.userId) {
-      socket.userId = session.userId;
-      socket.userName = session.userName;
-      socket.userAvatar = session.userAvatar;
+    try {
+      const cookieHeader = socket.request.headers.cookie || '';
+      const match = cookieHeader.match(/auction_token=([^;]+)/);
+      if (!match) return next(new Error('Unauthorized'));
+
+      const decoded = jwt.verify(match[1], JWT_SECRET);
+      socket.userId       = decoded.userId;
+      socket.userName     = decoded.userName;
+      socket.userAvatar   = decoded.userAvatar;
       next();
-    } else {
+    } catch {
       next(new Error('Unauthorized'));
     }
   });

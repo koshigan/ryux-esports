@@ -1,32 +1,64 @@
-// middleware/auth.js - Session authentication middleware
+// middleware/auth.js - JWT-based authentication middleware
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'ryux-jwt-secret-2024';
+const COOKIE_NAME = 'auction_token';
+const IS_PROD = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
 
 /**
- * Protects routes - redirects unauthenticated users to login
- * Used on all routes that require a logged-in user
+ * Signs a JWT and sets it as an httpOnly cookie on the response.
+ */
+function setAuthCookie(res, payload) {
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  res.cookie(COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: IS_PROD,
+    sameSite: IS_PROD ? 'none' : 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  });
+}
+
+/**
+ * Clears the auth cookie (logout).
+ */
+function clearAuthCookie(res) {
+  res.clearCookie(COOKIE_NAME, {
+    httpOnly: true,
+    secure: IS_PROD,
+    sameSite: IS_PROD ? 'none' : 'lax'
+  });
+}
+
+/**
+ * Reads and verifies the JWT cookie. Populates res.locals with user info.
+ * Called on every request.
+ */
+function attachUser(req, res, next) {
+  try {
+    const token = req.cookies?.[COOKIE_NAME];
+    if (token) {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      res.locals.userId   = decoded.userId;
+      res.locals.userName = decoded.userName;
+      res.locals.userRole = decoded.userRole || 'admin';
+      res.locals.guildTeamId  = decoded.guildTeamId  || null;
+      res.locals.guildForceId = decoded.guildForceId || null;
+    }
+  } catch {
+    // Invalid / expired token — treat as unauthenticated
+  }
+  next();
+}
+
+/**
+ * Protects routes — returns 401 JSON for API or redirects to /login for pages.
  */
 function requireAuth(req, res, next) {
-  if (req.session && req.session.userId) {
-    return next(); // User is authenticated, proceed
-  }
-  // API requests get JSON error; page requests get redirect
+  if (res.locals.userId) return next();
   if (req.path.startsWith('/api/')) {
     return res.status(401).json({ error: 'Unauthorized. Please log in.' });
   }
   res.redirect('/login');
 }
 
-/**
- * Attaches user info to res.locals for use in templates/responses
- * Called on every request after session check
- */
-function attachUser(req, res, next) {
-  if (req.session && req.session.userId) {
-    res.locals.userId = req.session.userId;
-    res.locals.userName = req.session.userName;
-    res.locals.userRole = req.session.userRole || 'admin';
-    res.locals.guildTeamId = req.session.guildTeamId || null;
-  }
-  next();
-}
-
-module.exports = { requireAuth, attachUser };
+module.exports = { requireAuth, attachUser, setAuthCookie, clearAuthCookie };

@@ -17,7 +17,7 @@ function generateRoomCode() {
 router.post('/create', requireAuth, async (req, res) => {
   try {
     const { name, is_public, budget_per_user, bid_timer } = req.body;
-    const hostId = req.session.userId;
+    const hostId = res.locals.userId;
 
     if (!name || sanitize(name).length < 2) {
       return res.status(400).json({ error: 'Room name must be at least 2 characters.' });
@@ -54,7 +54,7 @@ router.post('/create', requireAuth, async (req, res) => {
 router.post('/join', requireAuth, async (req, res) => {
   try {
     const roomCode = (req.body.room_code || '').toUpperCase().trim();
-    const userId = req.session.userId;
+    const userId = res.locals.userId;
 
     if (!roomCode) {
       return res.status(400).json({ error: 'Room code is required.' });
@@ -119,7 +119,7 @@ router.get('/public', requireAuth, async (req, res) => {
 // GET /api/rooms/my
 router.get('/my', requireAuth, async (req, res) => {
   try {
-    const userId = req.session.userId;
+    const userId = res.locals.userId;
     const [rooms] = await db.query(
       `SELECT r.*, u.name as host_name, u.avatar as host_avatar,
               (SELECT COUNT(*) FROM room_participants WHERE room_id = r.id) as participant_count
@@ -141,7 +141,7 @@ router.get('/my', requireAuth, async (req, res) => {
 router.get('/:id', requireAuth, async (req, res) => {
   try {
     const roomId = req.params.id;
-    const userId = req.session.userId;
+    const userId = res.locals.userId;
 
     // Get room info
     const [rooms] = await db.query(
@@ -205,7 +205,7 @@ router.patch('/:id/status', requireAuth, async (req, res) => {
   try {
     const { status } = req.body;
     const roomId = req.params.id;
-    const userId = req.session.userId;
+    const userId = res.locals.userId;
 
     const validStatuses = ['waiting', 'active', 'paused', 'ended'];
     if (!validStatuses.includes(status)) {

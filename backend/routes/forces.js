@@ -40,28 +40,15 @@ const upload = multer({
 });
 
 // ── MIDDLEWARE: Check if user is admin ──────────────────────
-const requireAdmin = async (req, res, next) => {
-  if (!req.session.userId) {
+const requireAdmin = (req, res, next) => {
+  if (!res.locals.userId) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
-  
-  try {
-    let isAdmin = false;
-    
-    if (typeof req.session.userId === 'number' || (typeof req.session.userId === 'string' && !isNaN(Number(req.session.userId)))) {
-      const [user] = await db.query('SELECT is_admin FROM users WHERE id = ?', [req.session.userId]);
-      if (user && user.is_admin) isAdmin = true;
-    } else {
-      if (req.session.userRole === 'admin') isAdmin = true;
-    }
-
-    if (!isAdmin) {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
-    next();
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  const role = res.locals.userRole;
+  if (role !== 'admin' && role !== 'guild_leader') {
+    return res.status(403).json({ error: 'Admin access required' });
   }
+  next();
 };
 
 // ── CREATE FORCE (Admin only) ────────────────────────────────

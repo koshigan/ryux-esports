@@ -34,7 +34,7 @@ async function verifyHost(roomId, userId) {
 router.post('/add', requireAuth, async (req, res) => {
   try {
     const { room_id, name, category, base_price, image_url } = req.body;
-    const userId = req.session.userId;
+    const userId = res.locals.userId;
 
     if (!await verifyHost(room_id, userId)) {
       return res.status(403).json({ error: 'Only the host can add players.' });
@@ -72,7 +72,7 @@ router.post('/add', requireAuth, async (req, res) => {
 router.post('/upload-csv', requireAuth, upload.single('csv'), async (req, res) => {
   try {
     const { room_id } = req.body;
-    const userId = req.session.userId;
+    const userId = res.locals.userId;
 
     if (!await verifyHost(room_id, userId)) {
       return res.status(403).json({ error: 'Only the host can upload players.' });
@@ -133,7 +133,7 @@ router.post('/upload-csv', requireAuth, upload.single('csv'), async (req, res) =
 router.put('/:id', requireAuth, async (req, res) => {
   try {
     const playerId = req.params.id;
-    const userId = req.session.userId;
+    const userId = res.locals.userId;
     const { name, category, base_price, image_url } = req.body;
 
     // Get player's room to verify host
@@ -173,7 +173,7 @@ router.put('/:id', requireAuth, async (req, res) => {
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const playerId = req.params.id;
-    const userId = req.session.userId;
+    const userId = res.locals.userId;
 
     const [players] = await db.query('SELECT * FROM players WHERE id = ?', [playerId]);
     if (players.length === 0) return res.status(404).json({ error: 'Player not found.' });

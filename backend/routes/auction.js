@@ -62,7 +62,7 @@ router.get('/leaderboard/:roomId', requireAuth, async (req, res) => {
 // GET /api/auction/history
 router.get('/history', requireAuth, async (req, res) => {
   try {
-    const userId = req.session.userId;
+    const userId = res.locals.userId;
     const [history] = await db.query(
       `SELECT r.id, r.name, r.room_code, r.status, r.created_at,
               COUNT(DISTINCT t.player_id) as players_bought,

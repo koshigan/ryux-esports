@@ -3,7 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const session = require('express-session');
+const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const path = require('path');
 
@@ -25,26 +25,8 @@ const io = new Server(server, {
   }
 });
 
-// ── SESSION SETUP ─────────────────────────────────────────
+// ── JWT / COOKIE SETUP ───────────────────────────────────
 app.set('trust proxy', 1);
-
-const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
-
-const sessionMiddleware = session({
-  secret: process.env.SESSION_SECRET || 'auction-super-secret-2024',
-  name: 'auction_sid',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'none' : 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000  // 7 days
-  }
-});
-
-// Share session with Socket.io
-io.engine.use(sessionMiddleware);
 
 // ── MIDDLEWARE ────────────────────────────────────────────
 app.use(cors({
@@ -53,7 +35,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(sessionMiddleware);
+app.use(cookieParser());
 app.use(attachUser);
 
 // Serve static frontend files
@@ -73,8 +55,8 @@ app.use('/api/forces', forcesRoutes);
 const pagesDir = path.join(__dirname, '../frontend/pages');
 
 app.get('/', (req, res) => {
-  if (req.session && req.session.userId) {
-    const isDirPath = ['war_leader', 'force_captain', 'guild_leader'].includes(req.session.userRole);
+  if (res.locals.userId) {
+    const isDirPath = ['war_leader', 'force_captain', 'guild_leader'].includes(res.locals.userRole);
     return res.redirect(isDirPath ? '/guild-war' : '/dashboard');
   }
   res.sendFile(path.join(pagesDir, 'login.html'));
@@ -88,15 +70,15 @@ app.get('/history', (req, res) => res.sendFile(path.join(pagesDir, 'history.html
 app.get('/guild-war', (req, res) => res.sendFile(path.join(pagesDir, 'guild-war.html')));
 app.get('/guild-war/team/:id', (req, res) => res.sendFile(path.join(pagesDir, 'guild-war-team.html')));
 app.get('/guild-war/force/:id', (req, res) => {
-  if (!req.session.userId) return res.redirect('/login');
+  if (!res.locals.userId) return res.redirect('/login');
   res.sendFile(path.join(pagesDir, 'guild-war-force.html'));
 });
 app.get('/guild-war/progress', (req, res) => {
-  if (!req.session.userId) return res.redirect('/login');
+  if (!res.locals.userId) return res.redirect('/login');
   res.sendFile(path.join(pagesDir, 'guild-war-progress.html'));
 });
 app.get('/admin/forces', (req, res) => {
-  if (!req.session.userId) return res.redirect('/login');
+  if (!res.locals.userId) return res.redirect('/login');
   res.sendFile(path.join(pagesDir, 'admin-forces.html'));
 });
 
