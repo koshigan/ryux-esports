@@ -150,8 +150,16 @@ router.get('/me', async (req, res) => {
   }
   
   try {
-    const [users] = await db.query('SELECT is_admin FROM users WHERE id = ?', [req.session.userId]);
-    const isAdmin = users.length > 0 ? users[0].is_admin : 0;
+    let isAdmin = 0;
+    
+    // Only query DB if it's a numeric ID (regular user)
+    if (typeof req.session.userId === 'number' || (typeof req.session.userId === 'string' && !isNaN(Number(req.session.userId)))) {
+      const [users] = await db.query('SELECT is_admin FROM users WHERE id = ?', [req.session.userId]);
+      isAdmin = users.length > 0 ? users[0].is_admin : 0;
+    } else {
+      // Hardcoded guild war users
+      isAdmin = req.session.userRole === 'admin' ? 1 : 0;
+    }
     
     res.json({
       id: req.session.userId,

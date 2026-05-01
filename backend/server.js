@@ -26,6 +26,10 @@ const io = new Server(server, {
 });
 
 // ── SESSION SETUP ─────────────────────────────────────────
+app.set('trust proxy', 1);
+
+const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+
 const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET || 'auction-super-secret-2024',
   name: 'auction_sid',
@@ -33,7 +37,8 @@ const sessionMiddleware = session({
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    secure: false,      // Set true in production with HTTPS
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000  // 7 days
   }
 });
