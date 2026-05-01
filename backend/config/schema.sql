@@ -125,6 +125,15 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 );
 
 -- -------------------------------------------------------
+-- GUILD WAR SETTINGS: Guild war state storage
+-- -------------------------------------------------------
+CREATE TABLE IF NOT EXISTS guild_war_settings (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  state_json TEXT DEFAULT '{}',
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- -------------------------------------------------------
 -- INDEXES for performance
 -- -------------------------------------------------------
 CREATE INDEX idx_rooms_code ON rooms(room_code);
