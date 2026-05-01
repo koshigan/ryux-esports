@@ -530,8 +530,31 @@ async function createTeam() {
 }
 
 function openEditTeamModal() {
-  const team = getSelectedTeam();
-  if (!canEditTeam(team)) return;
+  const editableTeams = isAdmin()
+    ? guildWarState.teams
+    : guildWarState.teams.filter((t) => canEditTeam(t));
+
+  if (!editableTeams.length) {
+    toast('No teams available to edit.', 'error');
+    return;
+  }
+
+  // Pick the initially displayed team
+  const initialTeam = editableTeams.find((t) => t.id === selectedTeamId) || editableTeams[0];
+
+  const teamOptions = editableTeams
+    .map((t) => `<option value="${t.id}" ${t.id === initialTeam.id ? 'selected' : ''}>${escapeHtml(t.name)}</option>`)
+    .join('');
+
+  const forceSelect = canMoveTeamsAcrossForces()
+    ? `<div class="form-group">
+        <label class="form-label">Force</label>
+        <select id="edit-team-force" class="form-select">
+          ${guildWarForces.map((force) => `<option value="${force.id}" ${initialTeam.forceId === force.id ? 'selected' : ''}>${escapeHtml(force.name)} - ${escapeHtml(force.post)}</option>`).join('')}
+        </select>
+        <div class="form-hint">Admin can move a team to another force.</div>
+      </div>`
+    : '';
 
   showModal(`
     <div class="modal-header">
@@ -539,6 +562,30 @@ function openEditTeamModal() {
       <button class="modal-close">X</button>
     </div>
     <div id="team-edit-error" class="alert alert-error mb-16" style="display:none"></div>
+    <div class="form-group">
+      <label class="form-label">Select Team</label>
+      <select id="edit-team-select" class="form-select" onchange="onEditTeamChange()">
+        ${teamOptions}
+      </select>
+    </div>
+    <div id="edit-team-fields">
+      ${buildEditTeamFields(initialTeam)}
+    </div>
+    ${forceSelect}
+    <div class="form-group" id="edit-team-picture-group">
+      <label class="form-label">Team Picture</label>
+      <input id="edit-team-picture" type="file" accept="image/*" class="form-input">
+      <div class="form-hint">Admin can set one picture for each of the 13 team slots.</div>
+    </div>
+    <div id="edit-team-remove-pic"></div>
+    <button class="btn btn-primary btn-full" onclick="editSelectedTeam()">Save Changes</button>
+  `);
+
+  renderEditTeamRemovePicBtn(initialTeam);
+}
+
+function buildEditTeamFields(team) {
+  return `
     <div class="form-group">
       <label class="form-label">Team Name</label>
       <input id="edit-team-name" class="form-input" value="${escapeHtml(team.name)}">
@@ -551,23 +598,43 @@ function openEditTeamModal() {
       <label class="form-label">War Leader Email</label>
       <input id="edit-leader-email" class="form-input" value="${escapeHtml(team.leaderEmail)}">
     </div>
-    ${canMoveTeamsAcrossForces() ? `
-      <div class="form-group">
-        <label class="form-label">Force</label>
-        <select id="edit-team-force" class="form-select">
-          ${guildWarForces.map((force) => `<option value="${force.id}" ${team.forceId === force.id ? 'selected' : ''}>${escapeHtml(force.name)} - ${escapeHtml(force.post)}</option>`).join('')}
-        </select>
-        <div class="form-hint">Guild Leader/Admin can move a team to another force.</div>
-      </div>
-    ` : ''}
-    <div class="form-group">
-      <label class="form-label">Team Picture</label>
-      <input id="edit-team-picture" type="file" accept="image/*" class="form-input">
-      <div class="form-hint">Admin can set one picture for each of the 13 team slots.</div>
-    </div>
-    ${team.imageData ? '<button class="btn btn-secondary btn-full mb-16" onclick="clearSelectedTeamPicture()">Remove Team Picture</button>' : ''}
-    <button class="btn btn-primary btn-full" onclick="editSelectedTeam()">Save Changes</button>
-  `);
+  `;
+}
+
+function renderEditTeamRemovePicBtn(team) {
+  const container = document.getElementById('edit-team-remove-pic');
+  if (!container) return;
+  container.innerHTML = team.imageData
+    ? `<button class="btn btn-secondary btn-full mb-16" onclick="clearEditedTeamPicture()">Remove Team Picture</button>`
+    : '';
+}
+
+function onEditTeamChange() {
+  const teamId = Number(document.getElementById('edit-team-select').value);
+  const team = guildWarState.teams.find((t) => t.id === teamId);
+  if (!team) return;
+
+  document.getElementById('edit-team-fields').innerHTML = buildEditTeamFields(team);
+  renderEditTeamRemovePicBtn(team);
+
+  // Update force selector if present
+  const forceSelect = document.getElementById('edit-team-force');
+  if (forceSelect) forceSelect.value = team.forceId || guildWarForces[0].id;
+
+  // Reset file input
+  const picInput = document.getElementById('edit-team-picture');
+  if (picInput) picInput.value = '';
+}
+
+function clearEditedTeamPicture() {
+  const teamId = Number(document.getElementById('edit-team-select')?.value || selectedTeamId);
+  const team = guildWarState.teams.find((t) => t.id === teamId) || getSelectedTeam();
+  team.imageData = '';
+  saveGuildWarState();
+  renderAll();
+  renderEditTeamRemovePicBtn(team);
+  toast('Team picture removed.', 'success');
+}
 }
 
 async function editSelectedTeam() {
