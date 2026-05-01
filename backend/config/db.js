@@ -26,7 +26,7 @@ async function initializeDatabase() {
   let conn;
   try {
     // We try to get a connection. If the database doesn't exist, this might fail.
-    // However, on Aiven/Render, the DB_NAME (usually 'defaultdb') usually already exists.
+    // However, on Aiven/Render, the DB_NAME (usually 'defaultdb') already exists.
     try {
       conn = await pool.getConnection();
     } catch (err) {
@@ -106,4 +106,4 @@ async function initializeDatabase() {
 // Run initialization
 initializeDatabase();
 
-module.exports = pool;
+module.exports = pool;

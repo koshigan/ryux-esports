@@ -129,7 +129,7 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 -- -------------------------------------------------------
 CREATE TABLE IF NOT EXISTS guild_war_settings (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  state_json TEXT DEFAULT '{}',
+  state_json LONGTEXT,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
