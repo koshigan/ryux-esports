@@ -635,10 +635,11 @@ function clearEditedTeamPicture() {
   renderEditTeamRemovePicBtn(team);
   toast('Team picture removed.', 'success');
 }
-}
 
 async function editSelectedTeam() {
-  const team = getSelectedTeam();
+  const teamSelectEl = document.getElementById('edit-team-select');
+  const teamId = teamSelectEl ? Number(teamSelectEl.value) : selectedTeamId;
+  const team = guildWarState.teams.find((t) => t.id === teamId) || getSelectedTeam();
   const name = document.getElementById('edit-team-name').value.trim();
   const leaderName = document.getElementById('edit-leader-name').value.trim();
   const leaderEmail = document.getElementById('edit-leader-email').value.trim() || '-';
