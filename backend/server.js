@@ -84,6 +84,10 @@ app.get('/guild-war-force', (req, res) => {
   res.sendFile(path.join(pagesDir, 'guild-war-force.html'));
 });
 
+app.get('/guild-war/force/:forceId', (req, res) => {
+  res.sendFile(path.join(pagesDir, 'guild-war-force.html'));
+});
+
 app.get('/guild-war-progress', (req, res) => {
   res.sendFile(path.join(pagesDir, 'guild-war-progress.html'));
 });
