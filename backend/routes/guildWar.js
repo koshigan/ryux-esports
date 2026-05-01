@@ -21,13 +21,9 @@ router.get('/state', requireAuth, async (req, res) => {
 // POST /api/guild-war/state
 router.post('/state', requireAuth, async (req, res) => {
   try {
-    // Only admins or guild leaders should be able to update the global state
-    if (res.locals.userRole !== 'admin' && res.locals.userRole !== 'guild_leader') {
-      // Actually, war leaders might need to update their own points.
-      // But the current frontend logic sends the WHOLE state.
-      // For now, let's allow it if they are authenticated, but in a real app we'd want more granular control.
-      // Given the user request, we want it to work for "even if i use admin login".
-    }
+    const userId = res.locals.userId;
+    const userRole = res.locals.userRole;
+    console.log(`[GuildWar] State update attempt by ${userRole} (ID: ${userId})`);
 
     const stateJson = JSON.stringify(req.body);
     

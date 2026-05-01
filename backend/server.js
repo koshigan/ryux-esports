@@ -30,7 +30,14 @@ app.set('trust proxy', 1);
 
 // ── MIDDLEWARE ────────────────────────────────────────────
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    // Allow any origin for development, especially useful for mobile testing
+    if (!origin || origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1') || origin.match(/^http:\/\/192\.168\./)) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Fallback to allow for now, but in production you'd want process.env.FRONTEND_URL
+    }
+  },
   credentials: true
 }));
 app.use(express.json());

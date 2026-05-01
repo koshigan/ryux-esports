@@ -111,8 +111,8 @@ async function saveGuildWarState() {
   try {
     await api.post('/api/guild-war/state', guildWarState);
   } catch (error) {
-    console.error('Failed to save guild war state to server', error);
-    toast('Sync failed. Saving locally...', 'error');
+    console.error('Failed to save guild war state to server:', error);
+    toast(`Sync failed: ${error.message}. Saved locally.`, 'error');
   }
   localStorage.setItem(GUILD_WAR_STORAGE_KEY, JSON.stringify(guildWarState));
 }
@@ -244,7 +244,11 @@ function renderSessionAccess() {
     const team = guildWarState.teams.find((entry) => entry.id === getAccessibleTeamId());
     roleChip.textContent = 'War Leader Access';
     teamChip.textContent = team ? team.name : 'Own Team Only';
-    adminActions.style.display = 'none';
+    adminActions.innerHTML = `
+      <button class="btn btn-primary" onclick="openUpdatePointsModal()">Update My Team Points</button>
+      <button class="btn btn-secondary" onclick="openAddPlayerModal()">Add Player</button>
+    `;
+    adminActions.style.display = 'flex';
     if (endRoundBtn) endRoundBtn.style.display = 'none';
   }
 }
@@ -852,7 +856,7 @@ function promoteLeader() {
   });
   team.leaderName = nextLeader.name;
 
-  saveGuildWarState();
+  await saveGuildWarState();
   renderAll();
   document.querySelector('.modal-close')?.click();
   toast(`War leader updated for ${team.name}.`, 'success');
@@ -892,7 +896,7 @@ function setTeamTargets() {
   }
 
   team.members = team.members.map((member) => ({ ...member, targetPoints: value }));
-  saveGuildWarState();
+  await saveGuildWarState();
   renderAll();
   document.querySelector('.modal-close')?.click();
   toast(`Target points updated for ${team.name}.`, 'success');
@@ -964,7 +968,7 @@ function updatePlayerPoints() {
   }
 
   member.achievedPoints = newPoints;
-  saveGuildWarState();
+  await saveGuildWarState();
   renderAll();
   document.querySelector('.modal-close')?.click();
   toast(`${member.name}'s achieved points updated.`, 'success');
