@@ -67,32 +67,21 @@ app.use('/api/forces', forcesRoutes);
 // ── PAGE ROUTES (serve HTML files) ───────────────────────
 const pagesDir = path.join(__dirname, '../frontend/pages');
 
-function redirectByRole(req, res, pageName) {
-  if (!req.session.userId) return res.redirect('/login');
-  if (['war_leader', 'force_captain'].includes(req.session.userRole)) return res.redirect('/guild-war');
-  return res.sendFile(path.join(pagesDir, pageName));
-}
-
 app.get('/', (req, res) => {
-  if (req.session.userId) {
-    res.redirect(['war_leader', 'force_captain', 'guild_leader'].includes(req.session.userRole) ? '/guild-war' : '/dashboard');
-  } else {
-    res.sendFile(path.join(pagesDir, 'login.html'));
+  if (req.session && req.session.userId) {
+    const isDirPath = ['war_leader', 'force_captain', 'guild_leader'].includes(req.session.userRole);
+    return res.redirect(isDirPath ? '/guild-war' : '/dashboard');
   }
+  res.sendFile(path.join(pagesDir, 'login.html'));
 });
 
 app.get('/login', (req, res) => res.sendFile(path.join(pagesDir, 'login.html')));
 app.get('/register', (req, res) => res.sendFile(path.join(pagesDir, 'register.html')));
-app.get('/dashboard', (req, res) => redirectByRole(req, res, 'dashboard.html'));
-app.get('/room/:id', (req, res) => redirectByRole(req, res, 'room.html'));
-app.get('/history', (req, res) => redirectByRole(req, res, 'history.html'));
-app.get('/guild-war', (req, res) => {
-  if (!req.session.userId) return res.redirect('/login');
-  res.sendFile(path.join(pagesDir, 'guild-war.html'));
-});
-app.get('/guild-war/team/:id', (req, res) => {
-  if (!req.session.userId) return res.redirect('/login');
-  res.sendFile(path.join(pagesDir, 'guild-war-team.html'));
+app.get('/dashboard', (req, res) => res.sendFile(path.join(pagesDir, 'dashboard.html')));
+app.get('/room/:id', (req, res) => res.sendFile(path.join(pagesDir, 'room.html')));
+app.get('/history', (req, res) => res.sendFile(path.join(pagesDir, 'history.html')));
+app.get('/guild-war', (req, res) => res.sendFile(path.join(pagesDir, 'guild-war.html')));
+app.get('/guild-war/team/:id', (req, res) => res.sendFile(path.join(pagesDir, 'guild-war-team.html'));
 });
 app.get('/guild-war/force/:id', (req, res) => {
   if (!req.session.userId) return res.redirect('/login');
