@@ -741,11 +741,20 @@ function readImageAsDataUrl(file) {
 }
 
 function openAddPlayerModal() {
-  const team = getSelectedTeam();
-  if (!canEditTeam(team)) {
-    toast('Only admin or the respective war leader can add players here.', 'error');
+  const editableTeams = isAdmin()
+    ? guildWarState.teams
+    : isForceCaptain()
+    ? guildWarState.teams.filter((t) => t.forceId === currentUser.guildForceId)
+    : currentUser.guildTeamId
+    ? guildWarState.teams.filter((t) => t.id === currentUser.guildTeamId)
+    : [];
+
+  if (!editableTeams.length) {
+    toast('No teams available to add players to.', 'error');
     return;
   }
+
+  const initialTeam = editableTeams.find((t) => t.id === selectedTeamId) || editableTeams[0];
 
   showModal(`
     <div class="modal-header">
@@ -754,8 +763,10 @@ function openAddPlayerModal() {
     </div>
     <div id="player-create-error" class="alert alert-error mb-16" style="display:none"></div>
     <div class="form-group">
-      <label class="form-label">Team</label>
-      <input class="form-input" value="${escapeHtml(team.name)}" disabled>
+      <label class="form-label">Select Team</label>
+      <select id="add-player-team-select" class="form-select">
+        ${editableTeams.map((t) => `<option value="${t.id}" ${t.id === initialTeam.id ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('')}
+      </select>
     </div>
     <div class="form-group">
       <label class="form-label">Player Name</label>
@@ -774,7 +785,9 @@ function openAddPlayerModal() {
 }
 
 async function addPlayerToSelectedTeam() {
-  const team = getSelectedTeam();
+  const teamId = Number(document.getElementById('add-player-team-select').value);
+  const team = guildWarState.teams.find(t => t.id === teamId);
+  if (!team) return;
   const name = document.getElementById('player-name-input').value.trim();
   const targetPoints = Number(document.getElementById('player-target-input').value);
   const achievedPoints = Number(document.getElementById('player-achieved-input').value);
@@ -867,39 +880,93 @@ async function promoteLeader() {
 }
 
 function openSetTargetModal() {
-  const team = getSelectedTeam();
-  if (!canEditTeam(team)) return;
+  const editableTeams = isAdmin()
+    ? guildWarState.teams
+    : isForceCaptain()
+    ? guildWarState.teams.filter((t) => t.forceId === currentUser.guildForceId)
+    : currentUser.guildTeamId
+    ? guildWarState.teams.filter((t) => t.id === currentUser.guildTeamId)
+    : [];
+
+  if (!editableTeams.length) {
+    toast('No teams available to set targets.', 'error');
+    return;
+  }
+
+  const initialTeam = editableTeams.find((t) => t.id === selectedTeamId) || editableTeams[0];
 
   showModal(`
     <div class="modal-header">
-      <h3>Set Team Target</h3>
+      <h3>Set Team & Player Targets</h3>
       <button class="modal-close">X</button>
     </div>
     <div id="target-error" class="alert alert-error mb-16" style="display:none"></div>
     <div class="form-group">
-      <label class="form-label">Team</label>
-      <input class="form-input" value="${escapeHtml(team.name)}" disabled>
+      <label class="form-label">Select Team</label>
+      <select id="target-team-select" class="form-select" onchange="onTargetTeamChange()">
+        ${editableTeams.map((t) => `<option value="${t.id}" ${t.id === initialTeam.id ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('')}
+      </select>
     </div>
-    <div class="form-group">
-      <label class="form-label">Target Points For All Members</label>
-      <input id="team-target-input" type="number" min="150" value="180" class="form-input">
+    <div id="team-players-targets-list">
+      ${buildPlayersTargetFields(initialTeam)}
     </div>
-    <button class="btn btn-primary btn-full" onclick="setTeamTargets()">Apply Target</button>
+    <button class="btn btn-primary btn-full" onclick="setTeamTargets()">Save All Targets</button>
   `);
 }
 
+function buildPlayersTargetFields(team) {
+  if (!team.members.length) return '<p class="empty-state">No players in this team.</p>';
+  
+  return `
+    <div class="divider"></div>
+    <p class="mb-16">Set target points for each player (min 150):</p>
+    ${team.members.map(member => `
+      <div class="form-group">
+        <label class="form-label">${member.name} (${member.role})</label>
+        <input type="number" min="150" class="form-input player-target-input" data-id="${member.id}" value="${member.targetPoints || 150}">
+      </div>
+    `).join('')}
+  `;
+}
+
+function onTargetTeamChange() {
+  const teamId = Number(document.getElementById('target-team-select').value);
+  const team = guildWarState.teams.find(t => t.id === teamId);
+  if (team) {
+    document.getElementById('team-players-targets-list').innerHTML = buildPlayersTargetFields(team);
+  }
+}
+
 async function setTeamTargets() {
-  const team = getSelectedTeam();
-  const value = Number(document.getElementById('team-target-input').value);
+  const teamId = Number(document.getElementById('target-team-select').value);
+  const team = guildWarState.teams.find(t => t.id === teamId);
   const error = document.getElementById('target-error');
 
-  if (value < 150) {
-    error.textContent = 'Target points must be 150 or more.';
+  if (!team) return;
+
+  const targetInputs = document.querySelectorAll('.player-target-input');
+  let hasError = false;
+
+  targetInputs.forEach(input => {
+    const val = Number(input.value);
+    if (val < 150) {
+      hasError = true;
+    }
+  });
+
+  if (hasError) {
+    error.textContent = 'All target points must be 150 or more.';
     error.style.display = 'flex';
     return;
   }
 
-  team.members = team.members.map((member) => ({ ...member, targetPoints: value }));
+  targetInputs.forEach(input => {
+    const memberId = Number(input.dataset.id);
+    const member = team.members.find(m => m.id === memberId);
+    if (member) {
+      member.targetPoints = Number(input.value);
+    }
+  });
   await saveGuildWarState(guildWarState);
   renderAll();
   document.querySelector('.modal-close')?.click();
