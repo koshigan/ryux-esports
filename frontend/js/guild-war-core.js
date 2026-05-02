@@ -222,23 +222,36 @@ async function getForces() {
   try {
     const dbForces = await api.get('/api/forces');
     if (dbForces && dbForces.length > 0) {
-      // Map DB forces to the structure we use
-      const mappedDbForces = dbForces.map(f => ({
-        id: String(f.id),
-        name: f.name,
-        post: f.description || 'Force',
-        captain: 'Force Captain',
-        logo_url: f.logo_url
-      }));
+      // Create a fresh list starting with defaults
+      const mergedForces = defaultGuildWarForces.map(df => {
+        // Find if this default force exists in DB by name
+        const dbMatch = dbForces.find(dbf => dbf.name.toLowerCase() === df.name.toLowerCase());
+        if (dbMatch) {
+          return {
+            ...df,
+            dbId: dbMatch.id, // Keep original DB integer ID
+            logo_url: dbMatch.logo_url,
+            description: dbMatch.description
+          };
+        }
+        return df;
+      });
       
-      // Combine hardcoded defaults with DB forces, ensuring no name duplicates
-      const uniqueForces = [...defaultGuildWarForces];
-      mappedDbForces.forEach(df => {
-        if (!uniqueForces.find(uf => uf.name.toLowerCase() === df.name.toLowerCase())) {
-          uniqueForces.push(df);
+      // Add any extra forces from DB that aren't in defaults
+      dbForces.forEach(dbf => {
+        if (!mergedForces.find(mf => mf.name.toLowerCase() === dbf.name.toLowerCase())) {
+          mergedForces.push({
+            id: String(dbf.id),
+            dbId: dbf.id,
+            name: dbf.name,
+            post: dbf.description || 'Force',
+            captain: 'Force Captain',
+            logo_url: dbf.logo_url
+          });
         }
       });
-      guildWarForces = uniqueForces;
+      
+      guildWarForces = mergedForces;
       return guildWarForces;
     }
   } catch (error) {

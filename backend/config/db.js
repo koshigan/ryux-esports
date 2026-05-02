@@ -88,6 +88,15 @@ async function initializeDatabase() {
         budget_remaining INT NOT NULL,
         joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY unique_participant (room_id, user_id)
+      )`,
+      `CREATE TABLE IF NOT EXISTS forces (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(150) NOT NULL UNIQUE,
+        logo_url VARCHAR(500) DEFAULT '',
+        description TEXT DEFAULT '',
+        admin_id INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )`
     ];
 

@@ -73,6 +73,7 @@ function renderForceActions() {
   }
 
   actionsContainer.innerHTML = `
+    <button class="btn btn-primary" onclick="openEditForceModal()">Edit Force Logo</button>
     <button class="btn btn-secondary" onclick="openEditTeamModal()">Edit Team</button>
     <button class="btn btn-secondary" onclick="openPromoteLeaderModal()">Promote Leader</button>
     <button class="btn btn-secondary" onclick="openSetTargetModal()">Set Targets</button>
@@ -86,6 +87,15 @@ function renderForceInfo() {
   document.getElementById('force-name').textContent = currentForce.name;
   document.getElementById('force-captain').textContent = `Captaincy: ${currentForce.captain || 'Force Captain'} (${currentForce.post || 'Force'})`;
   
+  const logoContainer = document.getElementById('force-logo-container');
+  if (logoContainer) {
+    if (currentForce.logo_url) {
+      logoContainer.innerHTML = `<img src="${currentForce.logo_url}" class="force-card-logo" style="width: 80px; height: 80px; border-radius: 12px; border: 2px solid var(--accent);" onerror="handleImageError(this, '${currentForce.name[0]}')">`;
+    } else {
+      logoContainer.innerHTML = `<div class="force-logo-placeholder" style="width: 80px; height: 80px; border-radius: 12px; font-size: 2rem;">${currentForce.name[0]}</div>`;
+    }
+  }
+
   const badge = document.getElementById('force-badge');
   badge.textContent = currentForce.post || 'Force';
   badge.className = 'eyebrow';
@@ -209,6 +219,16 @@ function buildEditTeamFields(team) {
       <label class="form-label">War Leader Email</label>
       <input id="edit-leader-email" class="form-input" value="${escapeHtml(team.leaderEmail)}">
     </div>
+    <div class="divider"></div>
+    <h4 class="mb-8">Edit Players</h4>
+    <div id="edit-team-members-list">
+      ${team.members.map(member => `
+        <div class="form-group">
+          <label class="form-label">${member.role}</label>
+          <input class="form-input edit-player-name" data-id="${member.id}" value="${escapeHtml(member.name)}">
+        </div>
+      `).join('')}
+    </div>
   `;
 }
 
@@ -280,10 +300,112 @@ async function editSelectedTeam() {
   const leaderMember = team.members.find((member) => member.role === 'War Leader');
   if (leaderMember) leaderMember.name = leaderName;
 
+  // Update player names
+  const playerInputs = document.querySelectorAll('.edit-player-name');
+  playerInputs.forEach(input => {
+    const memberId = Number(input.dataset.id);
+    const member = team.members.find(m => m.id === memberId);
+    if (member) {
+      member.name = input.value.trim() || member.name;
+    }
+  });
+
   await saveGuildWarState(guildWarState);
   renderTeams();
   document.querySelector('.modal-close')?.click();
   toast('Team details updated.', 'success');
+}
+
+function openEditForceModal() {
+  const force = currentForce;
+  if (!force) return;
+
+  showModal(`
+    <div class="modal-header">
+      <h3>Edit Force: ${escapeHtml(force.name)}</h3>
+      <button class="modal-close">X</button>
+    </div>
+    <div id="force-edit-error" class="alert alert-error mb-16" style="display:none"></div>
+    <div class="form-group">
+      <label class="form-label">Force Name</label>
+      <input id="edit-force-name" class="form-input" value="${escapeHtml(force.name)}" ${force.dbId ? '' : 'disabled'}>
+      ${force.dbId ? '' : '<div class="form-hint">Default forces can only have their logos updated here.</div>'}
+    </div>
+    <div class="form-group">
+      <label class="form-label">Force Logo</label>
+      <input id="edit-force-logo" type="file" accept="image/*" class="form-input">
+      <div class="form-hint">Upload a custom logo for this force.</div>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveForceChanges()">Save Changes</button>
+  `);
+}
+
+async function saveForceChanges() {
+  const force = currentForce;
+  const name = document.getElementById('edit-force-name').value.trim();
+  const logoInput = document.getElementById('edit-force-logo');
+  const error = document.getElementById('force-edit-error');
+
+  if (!name) {
+    error.textContent = 'Name is required.';
+    error.style.display = 'flex';
+    return;
+  }
+
+  try {
+    let dbId = force.dbId;
+
+    // If force doesn't exist in DB yet, create it
+    if (!dbId) {
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('description', force.post);
+      
+      const res = await fetch('/api/forces', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create force in database');
+      dbId = data.id;
+    }
+
+    // Update name if changed and force is in DB
+    if (dbId && name !== force.name) {
+      const res = await fetch(`/api/forces/${dbId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description: force.post }),
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to update force name');
+    }
+
+    // Update logo if provided
+    if (logoInput.files?.[0]) {
+      const formData = new FormData();
+      formData.append('logo', logoInput.files[0]);
+
+      const res = await fetch(`/api/forces/${dbId}/logo`, {
+        method: 'PUT',
+        body: formData,
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to upload logo');
+    }
+
+    toast('Force updated successfully. Refreshing...', 'success');
+    document.querySelector('.modal-close')?.click();
+    
+    // Reload forces and re-render
+    await getForces();
+    currentForce = getForce(selectedForceId);
+    renderForceInfo();
+  } catch (err) {
+    error.textContent = err.message;
+    error.style.display = 'flex';
+  }
 }
 
 function readImageAsDataUrl(file) {

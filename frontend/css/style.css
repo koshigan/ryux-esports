@@ -311,6 +311,8 @@ p { color: var(--text-muted); }
   padding: 28px;
   width: 100%;
   max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: var(--shadow);
   animation: slideUp 0.2s ease;
 }

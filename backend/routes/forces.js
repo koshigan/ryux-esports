@@ -56,7 +56,7 @@ const requireAdmin = (req, res, next) => {
 router.post('/', requireAuth, requireAdmin, upload.single('logo'), async (req, res) => {
   try {
     const { name, description } = req.body;
-    const adminId = req.session.userId;
+    const adminId = res.locals.userId;
 
     if (!name || name.trim() === '') {
       return res.status(400).json({ error: 'Force name is required' });

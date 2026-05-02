@@ -228,11 +228,18 @@ function renderForceGrid() {
     const achieved = teams.reduce((teamSum, team) => teamSum + team.members.reduce((sum, member) => sum + Number(member.achievedPoints || 0), 0), 0);
     const target = teams.reduce((teamSum, team) => teamSum + team.members.reduce((sum, member) => sum + Number(member.targetPoints || 0), 0), 0);
 
+    const editBtn = isAdmin() 
+      ? `<button class="btn-ghost" onclick="openEditForceModal('${force.id}', event)" title="Edit Force Logo" style="padding: 4px; margin-left: auto;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+         </button>` 
+      : '';
+
     return `
       <article class="force-card ${selectedForceId === force.id ? 'selected' : ''} ${accessible ? '' : 'restricted'}" onclick="selectForce('${force.id}')" tabindex="0" onkeydown="handleForceCardKey(event, '${force.id}')">
         <div class="force-card-header">
            ${force.logo_url ? `<img src="${force.logo_url}" class="force-card-logo" onerror="handleImageError(this, '${force.name[0]}')">` : `<div class="force-logo-placeholder">${force.name[0]}</div>`}
            <span class="badge ${force.id === 'sukuna' ? 'badge-red' : force.id === 'alien' ? 'badge-blue' : 'badge-gold'}">${force.post}</span>
+           ${editBtn}
         </div>
         <h3>${escapeHtml(force.name)}</h3>
         <p>Captaincy: ${escapeHtml(force.captain || 'Force Captain')}</p>
@@ -241,6 +248,98 @@ function renderForceGrid() {
       </article>
     `;
   }).join('');
+}
+
+function openEditForceModal(forceId, event) {
+  if (event) event.stopPropagation();
+  const force = getForce(forceId);
+  if (!force) return;
+
+  showModal(`
+    <div class="modal-header">
+      <h3>Edit Force: ${escapeHtml(force.name)}</h3>
+      <button class="modal-close">X</button>
+    </div>
+    <div id="force-edit-error" class="alert alert-error mb-16" style="display:none"></div>
+    <div class="form-group">
+      <label class="form-label">Force Name</label>
+      <input id="edit-force-name" class="form-input" value="${escapeHtml(force.name)}" ${force.dbId ? '' : 'disabled'}>
+      ${force.dbId ? '' : '<div class="form-hint">Default forces can only have their logos updated here.</div>'}
+    </div>
+    <div class="form-group">
+      <label class="form-label">Force Logo</label>
+      <input id="edit-force-logo" type="file" accept="image/*" class="form-input">
+      <div class="form-hint">Upload a custom logo for this force.</div>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveForceChanges('${forceId}')">Save Changes</button>
+  `);
+}
+
+async function saveForceChanges(forceId) {
+  const force = getForce(forceId);
+  const name = document.getElementById('edit-force-name').value.trim();
+  const logoInput = document.getElementById('edit-force-logo');
+  const error = document.getElementById('force-edit-error');
+
+  if (!name) {
+    error.textContent = 'Name is required.';
+    error.style.display = 'flex';
+    return;
+  }
+
+  try {
+    let dbId = force.dbId;
+
+    // If force doesn't exist in DB yet, create it
+    if (!dbId) {
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('description', force.post);
+      
+      const res = await fetch('/api/forces', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create force in database');
+      dbId = data.id;
+    }
+
+    // Update name if changed and force is in DB
+    if (dbId && name !== force.name) {
+      const res = await fetch(`/api/forces/${dbId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description: force.post }),
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to update force name');
+    }
+
+    // Update logo if provided
+    if (logoInput.files?.[0]) {
+      const formData = new FormData();
+      formData.append('logo', logoInput.files[0]);
+
+      const res = await fetch(`/api/forces/${dbId}/logo`, {
+        method: 'PUT',
+        body: formData,
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to upload logo');
+    }
+
+    toast('Force updated successfully. Refreshing...', 'success');
+    document.querySelector('.modal-close')?.click();
+    
+    // Reload forces and re-render
+    await getForces();
+    renderForceGrid();
+  } catch (err) {
+    error.textContent = err.message;
+    error.style.display = 'flex';
+  }
 }
 
 
@@ -504,6 +603,16 @@ function buildEditTeamFields(team) {
       <label class="form-label">War Leader Email</label>
       <input id="edit-leader-email" class="form-input" value="${escapeHtml(team.leaderEmail)}">
     </div>
+    <div class="divider"></div>
+    <h4 class="mb-8">Edit Players</h4>
+    <div id="edit-team-members-list">
+      ${team.members.map(member => `
+        <div class="form-group">
+          <label class="form-label">${member.role}</label>
+          <input class="form-input edit-player-name" data-id="${member.id}" value="${escapeHtml(member.name)}">
+        </div>
+      `).join('')}
+    </div>
   `;
 }
 
@@ -576,6 +685,16 @@ async function editSelectedTeam() {
 
   const leaderMember = team.members.find((member) => member.role === 'War Leader');
   if (leaderMember) leaderMember.name = leaderName;
+
+  // Update player names
+  const playerInputs = document.querySelectorAll('.edit-player-name');
+  playerInputs.forEach(input => {
+    const memberId = Number(input.dataset.id);
+    const member = team.members.find(m => m.id === memberId);
+    if (member) {
+      member.name = input.value.trim() || member.name;
+    }
+  });
 
   await saveGuildWarState(guildWarState);
   renderAll();
