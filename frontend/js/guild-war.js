@@ -98,11 +98,6 @@ function renderSessionAccess() {
     teamChip.textContent = 'All Teams';
     adminActions.innerHTML = `
       <button class="btn btn-primary" onclick="openCreateTeamModal()">Create Team</button>
-      <button class="btn btn-secondary" onclick="openEditTeamModal()">Edit Team</button>
-      <button class="btn btn-secondary" onclick="openPromoteLeaderModal()">Promote Leader</button>
-      <button class="btn btn-secondary" onclick="openSetTargetModal()">Set Targets</button>
-      <button class="btn btn-secondary" onclick="openAddPlayerModal()">Add Player</button>
-      <button class="btn btn-secondary" onclick="openUpdatePlayerPointsModal()">Update Player Points</button>
       <button class="btn btn-secondary" onclick="openEditRoundModal()">Edit Round</button>
     `;
     adminActions.style.display = 'flex';
@@ -123,24 +118,15 @@ function renderSessionAccess() {
     const force = getForce(currentUser.guildForceId);
     roleChip.textContent = `${force.post} Access`;
     teamChip.textContent = force.name;
-    adminActions.innerHTML = `
-      <button class="btn btn-secondary" onclick="openEditTeamModal()">Edit Team</button>
-      <button class="btn btn-secondary" onclick="openPromoteLeaderModal()">Promote Leader</button>
-      <button class="btn btn-secondary" onclick="openSetTargetModal()">Set Targets</button>
-      <button class="btn btn-secondary" onclick="openAddPlayerModal()">Add Player</button>
-      <button class="btn btn-secondary" onclick="openUpdatePlayerPointsModal()">Update Player Points</button>
-    `;
-    adminActions.style.display = 'flex';
+    adminActions.innerHTML = ``;
+    adminActions.style.display = 'none';
     if (endRoundBtn) endRoundBtn.style.display = 'none';
   } else {
     const team = guildWarState.teams.find((entry) => entry.id === getAccessibleTeamId());
     roleChip.textContent = 'War Leader Access';
     teamChip.textContent = team ? team.name : 'Own Team Only';
-    adminActions.innerHTML = `
-      <button class="btn btn-primary" onclick="openUpdateMyTeamPointsModal()">Update My Team Points</button>
-      <button class="btn btn-secondary" onclick="openAddPlayerModal()">Add Player</button>
-    `;
-    adminActions.style.display = 'flex';
+    adminActions.innerHTML = ``;
+    adminActions.style.display = 'none';
     if (endRoundBtn) endRoundBtn.style.display = 'none';
   }
 }
