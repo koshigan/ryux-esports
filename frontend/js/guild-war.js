@@ -19,7 +19,7 @@ async function initGuildWarPage() {
 
   if (currentUser.role === 'war_leader' && currentUser.guildTeamId) {
     selectedTeamId = currentUser.guildTeamId;
-    selectedForceId = getTeamForceId(guildWarState, selectedTeamId);
+    selectedForceId = getTeamForceId(selectedTeamId);
   } else if (currentUser.role === 'force_captain' && currentUser.guildForceId) {
     selectedForceId = currentUser.guildForceId;
     selectedTeamId = getTeamsForForce(guildWarState, selectedForceId)[0]?.id || selectedTeamId;
@@ -102,8 +102,8 @@ function renderSessionAccess() {
       <button class="btn btn-secondary" onclick="openPromoteLeaderModal()">Promote Leader</button>
       <button class="btn btn-secondary" onclick="openSetTargetModal()">Set Targets</button>
       <button class="btn btn-secondary" onclick="openAddPlayerModal()">Add Player</button>
+      <button class="btn btn-secondary" onclick="openUpdatePlayerPointsModal()">Update Player Points</button>
       <button class="btn btn-secondary" onclick="openEditRoundModal()">Edit Round</button>
-      <button class="btn btn-danger" onclick="resetToSampleData()">Reset to Sample</button>
     `;
     adminActions.style.display = 'flex';
 
@@ -128,6 +128,7 @@ function renderSessionAccess() {
       <button class="btn btn-secondary" onclick="openPromoteLeaderModal()">Promote Leader</button>
       <button class="btn btn-secondary" onclick="openSetTargetModal()">Set Targets</button>
       <button class="btn btn-secondary" onclick="openAddPlayerModal()">Add Player</button>
+      <button class="btn btn-secondary" onclick="openUpdatePlayerPointsModal()">Update Player Points</button>
     `;
     adminActions.style.display = 'flex';
     if (endRoundBtn) endRoundBtn.style.display = 'none';
@@ -136,7 +137,7 @@ function renderSessionAccess() {
     roleChip.textContent = 'War Leader Access';
     teamChip.textContent = team ? team.name : 'Own Team Only';
     adminActions.innerHTML = `
-      <button class="btn btn-primary" onclick="openUpdatePointsModal()">Update My Team Points</button>
+      <button class="btn btn-primary" onclick="openUpdateMyTeamPointsModal()">Update My Team Points</button>
       <button class="btn btn-secondary" onclick="openAddPlayerModal()">Add Player</button>
     `;
     adminActions.style.display = 'flex';
@@ -447,7 +448,11 @@ async function createTeam() {
 function openEditTeamModal() {
   const editableTeams = isAdmin()
     ? guildWarState.teams
-    : guildWarState.teams.filter((t) => canEditTeam(t));
+    : isForceCaptain()
+    ? guildWarState.teams.filter((t) => t.forceId === currentUser.guildForceId)
+    : currentUser.guildTeamId
+    ? guildWarState.teams.filter((t) => t.id === currentUser.guildTeamId)
+    : [];
 
   if (!editableTeams.length) {
     toast('No teams available to edit.', 'error');
@@ -461,7 +466,7 @@ function openEditTeamModal() {
     .map((t) => `<option value="${t.id}" ${t.id === initialTeam.id ? 'selected' : ''}>${escapeHtml(t.name)}</option>`)
     .join('');
 
-  const forceSelect = canMoveTeamsAcrossForces()
+  const forceSelect = isAdmin()
     ? `<div class="form-group">
         <label class="form-label">Force</label>
         <select id="edit-team-force" class="form-select">
@@ -490,7 +495,7 @@ function openEditTeamModal() {
     <div class="form-group" id="edit-team-picture-group">
       <label class="form-label">Team Picture</label>
       <input id="edit-team-picture" type="file" accept="image/*" class="form-input">
-      <div class="form-hint">Admin can set one picture for each of the 13 team slots.</div>
+      <div class="form-hint">${isAdmin() ? 'Admin can set one picture for each of the 13 team slots.' : 'You can update your team picture.'}</div>
     </div>
     <div id="edit-team-remove-pic"></div>
     <button class="btn btn-primary btn-full" onclick="editSelectedTeam()">Save Changes</button>
@@ -831,6 +836,154 @@ function openUpdatePointsModal(memberId = null) {
       <label class="form-label">Achieved Points</label>
       <input id="points-value-input" type="number" min="0" value="${targetMember.achievedPoints}" class="form-input">
       <div class="form-hint">War leaders can only update achieved points for their own team members.</div>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="updatePlayerPoints()">Update Points</button>
+  `);
+}
+
+function openUpdatePlayerPointsModal(memberId = null) {
+  // For admin and force captains to update any player's points in their accessible teams
+  const editableTeams = isAdmin()
+    ? guildWarState.teams
+    : isForceCaptain()
+    ? guildWarState.teams.filter((t) => t.forceId === currentUser.guildForceId)
+    : [];
+
+  if (!editableTeams.length) {
+    toast('No teams available to manage.', 'error');
+    return;
+  }
+
+  showModal(`
+    <div class="modal-header">
+      <h3>Update Player Achieved Points</h3>
+      <button class="modal-close">X</button>
+    </div>
+    <div id="player-points-error" class="alert alert-error mb-16" style="display:none"></div>
+    <div class="form-group">
+      <label class="form-label">Select Team</label>
+      <select id="update-points-team-select" class="form-select" onchange="updatePlayerPointsTeamOptions()">
+        ${editableTeams.map((t) => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Select Player</label>
+      <select id="update-points-player-select" class="form-select" onchange="syncPlayerPointDefaults()">
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Achieved Points</label>
+      <input id="player-points-value-input" type="number" min="0" value="0" class="form-input">
+    </div>
+    <button class="btn btn-primary btn-full" onclick="updateIndividualPlayerPoints()">Save Points</button>
+  `);
+
+  updatePlayerPointsTeamOptions();
+}
+
+function updatePlayerPointsTeamOptions() {
+  const teamId = Number(document.getElementById('update-points-team-select').value);
+  const editableTeams = isAdmin()
+    ? guildWarState.teams
+    : isForceCaptain()
+    ? guildWarState.teams.filter((t) => t.forceId === currentUser.guildForceId)
+    : [];
+  const team = editableTeams.find((t) => t.id === teamId);
+  const playerSelect = document.getElementById('update-points-player-select');
+
+  if (!team || !team.members.length) {
+    playerSelect.innerHTML = '<option value="">No players in this team</option>';
+    return;
+  }
+
+  playerSelect.innerHTML = team.members.map((member) => `
+    <option value="${member.id}" data-achieved="${member.achievedPoints}">
+      ${escapeHtml(member.name)} (${member.role}) - Target ${member.targetPoints}
+    </option>
+  `).join('');
+
+  syncPlayerPointDefaults();
+}
+
+function syncPlayerPointDefaults() {
+  const select = document.getElementById('update-points-player-select');
+  const selected = select.options[select.selectedIndex];
+  document.getElementById('player-points-value-input').value = selected.dataset.achieved || '0';
+}
+
+async function updateIndividualPlayerPoints() {
+  const teamId = Number(document.getElementById('update-points-team-select').value);
+  const editableTeams = isAdmin()
+    ? guildWarState.teams
+    : isForceCaptain()
+    ? guildWarState.teams.filter((t) => t.forceId === currentUser.guildForceId)
+    : [];
+  const team = editableTeams.find((t) => t.id === teamId);
+  const memberId = Number(document.getElementById('update-points-player-select').value);
+  const newPoints = Number(document.getElementById('player-points-value-input').value);
+  const error = document.getElementById('player-points-error');
+
+  if (!team) {
+    error.textContent = 'Team not found.';
+    error.style.display = 'flex';
+    return;
+  }
+
+  const member = team.members.find((m) => m.id === memberId);
+  if (!member) {
+    error.textContent = 'Player not found.';
+    error.style.display = 'flex';
+    return;
+  }
+
+  if (newPoints < 0) {
+    error.textContent = 'Achieved points cannot be negative.';
+    error.style.display = 'flex';
+    return;
+  }
+
+  member.achievedPoints = newPoints;
+  await saveGuildWarState(guildWarState);
+  renderAll();
+  document.querySelector('.modal-close')?.click();
+  toast(`${member.name}'s achieved points updated to ${newPoints}.`, 'success');
+}
+
+function openUpdateMyTeamPointsModal(memberId = null) {
+  const team = getSelectedTeam();
+  if (!canEditTeam(team)) {
+    toast('Only admin or that team war leader can update achieved points.', 'error');
+    return;
+  }
+
+  const targetMember = memberId
+    ? team.members.find((member) => member.id === memberId)
+    : team.members[0];
+
+  if (!targetMember) {
+    toast('Add a member before updating achieved points.', 'info');
+    return;
+  }
+
+  showModal(`
+    <div class="modal-header">
+      <h3>Update Team Achieved Points</h3>
+      <button class="modal-close">X</button>
+    </div>
+    <div id="points-error" class="alert alert-error mb-16" style="display:none"></div>
+    <div class="form-group">
+      <label class="form-label">Member</label>
+      <select id="points-player-select" class="form-select" onchange="syncMemberPointDefaults()">
+        ${team.members.map((member) => `
+          <option value="${member.id}" data-achieved="${member.achievedPoints}" ${member.id === targetMember.id ? 'selected' : ''}>
+            ${escapeHtml(member.name)} (${member.role}) - Target ${member.targetPoints}
+          </option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Achieved Points</label>
+      <input id="points-value-input" type="number" min="0" value="${targetMember.achievedPoints}" class="form-input">
+      <div class="form-hint">War leaders can update achieved points for their team members.</div>
     </div>
     <button class="btn btn-primary btn-full" onclick="updatePlayerPoints()">Update Points</button>
   `);
