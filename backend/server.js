@@ -73,6 +73,10 @@ app.get('/room', (req, res) => {
   res.sendFile(path.join(pagesDir, 'room.html'));
 });
 
+app.get('/room/:id', (req, res) => {
+  res.sendFile(path.join(pagesDir, 'room.html'));
+});
+
 app.get('/admin-forces', (req, res) => {
   res.sendFile(path.join(pagesDir, 'admin-forces.html'));
 });
