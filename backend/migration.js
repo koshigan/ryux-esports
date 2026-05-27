@@ -31,7 +31,7 @@ async function migrate() {
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(150) NOT NULL UNIQUE,
         logo_url VARCHAR(500) DEFAULT '',
-        description TEXT DEFAULT '',
+        description TEXT,
         admin_id INT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
