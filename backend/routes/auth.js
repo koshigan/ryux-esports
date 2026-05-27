@@ -8,13 +8,13 @@ const { setAuthCookie, clearAuthCookie } = require('../middleware/auth');
 const router = express.Router();
 
 const guildWarAccounts = [
-  { id: 'gw-admin',          name: 'RYUX Admin',          email: 'admin@ryuxesports.com',        password: 'Admin@123',        avatar: 'A', role: 'admin',         guildTeamId: null, guildForceId: null },
-  { id: 'gw-guild-leader',   name: 'Guild Leader',        email: 'guildleader@ryuxesports.com',  password: 'GuildLeader@123',  avatar: 'G', role: 'guild_leader',  guildTeamId: null, guildForceId: 'sukuna' },
-  { id: 'gw-acting-leader',  name: 'Acting Guild Leader', email: 'acting@ryuxesports.com',       password: 'Acting@123',       avatar: 'A', role: 'force_captain', guildTeamId: null, guildForceId: 'alien' },
-  { id: 'gw-supreme-leader', name: 'Supreme Leader',      email: 'supreme@ryuxesports.com',      password: 'Supreme@123',      avatar: 'S', role: 'force_captain', guildTeamId: null, guildForceId: 'das' },
-  { id: 'gw-team-1',         name: 'Black Bulls Leader',  email: 'blackbulls@ryuxesports.com',   password: 'BlackBulls@123',   avatar: 'B', role: 'war_leader',    guildTeamId: 1,    guildForceId: null },
-  { id: 'gw-team-2',         name: 'Red Reapers Leader',  email: 'redreapers@ryuxesports.com',   password: 'RedReapers@123',   avatar: 'R', role: 'war_leader',    guildTeamId: 2,    guildForceId: null },
-  { id: 'gw-team-3',         name: 'Storm Hunters Leader',email: 'stormhunters@ryuxesports.com', password: 'StormHunters@123', avatar: 'S', role: 'war_leader',    guildTeamId: 3,    guildForceId: null }
+  { id: 'gw-admin',          name: 'RYUX Admin',          email: 'admin@ryuxesports.com',        password: 'Admin@123',        avatar: 'A', role: 'admin',         guildTeamId: null, guildForceId: null, dbId: 1 },
+  { id: 'gw-guild-leader',   name: 'Guild Leader',        email: 'guildleader@ryuxesports.com',  password: 'GuildLeader@123',  avatar: 'G', role: 'guild_leader',  guildTeamId: null, guildForceId: 'sukuna', dbId: 2 },
+  { id: 'gw-acting-leader',  name: 'Acting Guild Leader', email: 'acting@ryuxesports.com',       password: 'Acting@123',       avatar: 'A', role: 'force_captain', guildTeamId: null, guildForceId: 'alien', dbId: 3 },
+  { id: 'gw-supreme-leader', name: 'Supreme Leader',      email: 'supreme@ryuxesports.com',      password: 'Supreme@123',      avatar: 'S', role: 'force_captain', guildTeamId: null, guildForceId: 'das', dbId: 4 },
+  { id: 'gw-team-1',         name: 'Black Bulls Leader',  email: 'blackbulls@ryuxesports.com',   password: 'BlackBulls@123',   avatar: 'B', role: 'war_leader',    guildTeamId: 1,    guildForceId: null, dbId: 5 },
+  { id: 'gw-team-2',         name: 'Red Reapers Leader',  email: 'redreapers@ryuxesports.com',   password: 'RedReapers@123',   avatar: 'R', role: 'war_leader',    guildTeamId: 2,    guildForceId: null, dbId: 6 },
+  { id: 'gw-team-3',         name: 'Storm Hunters Leader',email: 'stormhunters@ryuxesports.com', password: 'StormHunters@123', avatar: 'S', role: 'war_leader',    guildTeamId: 3,    guildForceId: null, dbId: 7 }
 ];
 
 // ── REGISTER ──────────────────────────────────────────────
@@ -71,8 +71,18 @@ router.post('/login', async (req, res) => {
         return res.status(401).json({ error: 'Invalid email or password.' });
       }
 
+      // Ensure user exists in database with proper integer ID
+      const [existing] = await db.query('SELECT id FROM users WHERE id = ?', [guildWarUser.dbId]);
+      if (existing.length === 0) {
+        // Create the hardcoded user in database
+        await db.query(
+          'INSERT INTO users (id, name, email, password, avatar, is_admin) VALUES (?, ?, ?, ?, ?, ?)',
+          [guildWarUser.dbId, guildWarUser.name, guildWarUser.email, 'hashed', guildWarUser.avatar, guildWarUser.role === 'admin' ? 1 : 0]
+        );
+      }
+
       setAuthCookie(res, {
-        userId:       guildWarUser.id,
+        userId:       guildWarUser.dbId,
         userName:     guildWarUser.name,
         userAvatar:   guildWarUser.avatar,
         userRole:     guildWarUser.role,
@@ -83,7 +93,7 @@ router.post('/login', async (req, res) => {
       return res.json({
         success: true,
         user: {
-          id:           guildWarUser.id,
+          id:           guildWarUser.dbId,
           name:         guildWarUser.name,
           email:        guildWarUser.email,
           avatar:       guildWarUser.avatar,
