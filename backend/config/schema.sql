@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS players (
   id INT AUTO_INCREMENT PRIMARY KEY,
   room_id INT NOT NULL,
   name VARCHAR(100) NOT NULL,
-  category VARCHAR(50) DEFAULT 'General',   -- Batsman, Bowler, etc.
+  category VARCHAR(50) DEFAULT 'General',   -- Rusher, Sniper, Supporter, Survivor, etc.
   base_price INT NOT NULL DEFAULT 10,
   image_url VARCHAR(500) DEFAULT '',        -- player image URL
   status ENUM('pending','active','sold','unsold') DEFAULT 'pending',

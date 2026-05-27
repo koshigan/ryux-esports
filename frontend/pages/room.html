@@ -221,11 +221,11 @@
                 <div class="form-group">
                   <label class="form-label">Position / Role</label>
                   <select id="p-cat" class="form-select player-pos-select">
-                    <option value="Batsman">🏏 Batsman</option>
-                    <option value="Bowler">🎯 Bowler</option>
-                    <option value="All-rounder">⚡ All-rounder</option>
-                    <option value="Wicketkeeper">🧤 Wicketkeeper</option>
-                    <option value="Captain">👑 Captain</option>
+                    <option value="Rusher">🔥 Rusher</option>
+                    <option value="Sniper">🎯 Sniper</option>
+                    <option value="Supporter">🛡️ Supporter</option>
+                    <option value="Survivor">💪 Survivor</option>
+                    <option value="Marksman">🎪 Marksman</option>
                     <option value="General">General</option>
                   </select>
                 </div>
@@ -573,7 +573,7 @@
     }
 
     function positionIcon(cat) {
-      const icons = { Batsman: '🏏', Bowler: '🎯', 'All-rounder': '⚡', Wicketkeeper: '🧤', Captain: '👑' };
+      const icons = { Rusher: '🔥', Sniper: '🎯', Supporter: '🛡️', Survivor: '💪', Marksman: '🎪' };
       return icons[cat] || '';
     }
 
@@ -726,8 +726,8 @@
     }
 
     function positionEmoji(cat) {
-      const emojis = { Batsman: '🏏', Bowler: '🎯', 'All-rounder': '⚡', Wicketkeeper: '🧤', Captain: '👑' };
-      return emojis[cat] || '⚽';
+      const emojis = { Rusher: '🔥', Sniper: '🎯', Supporter: '🛡️', Survivor: '💪', Marksman: '🎪' };
+      return emojis[cat] || '🎮';
     }
 
     function renderPlayerList(players) {
