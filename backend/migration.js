@@ -140,13 +140,26 @@ async function migrate() {
     console.log('✅ Guild War Settings table ensured');
 
     // Create indexes
-    await db.query(`CREATE INDEX IF NOT EXISTS idx_rooms_code ON rooms(room_code)`);
-    await db.query(`CREATE INDEX IF NOT EXISTS idx_players_room ON players(room_id)`);
-    await db.query(`CREATE INDEX IF NOT EXISTS idx_bids_player ON bids(player_id)`);
-    await db.query(`CREATE INDEX IF NOT EXISTS idx_bids_room ON bids(room_id)`);
-    await db.query(`CREATE INDEX IF NOT EXISTS idx_teams_room_user ON teams(room_id, user_id)`);
-    await db.query(`CREATE INDEX IF NOT EXISTS idx_chat_room ON chat_messages(room_id)`);
-    await db.query(`CREATE INDEX IF NOT EXISTS idx_forces_admin ON forces(admin_id)`);
+    const indexes = [
+      `CREATE INDEX idx_rooms_code ON rooms(room_code)`,
+      `CREATE INDEX idx_players_room ON players(room_id)`,
+      `CREATE INDEX idx_bids_player ON bids(player_id)`,
+      `CREATE INDEX idx_bids_room ON bids(room_id)`,
+      `CREATE INDEX idx_teams_room_user ON teams(room_id, user_id)`,
+      `CREATE INDEX idx_chat_room ON chat_messages(room_id)`,
+      `CREATE INDEX idx_forces_admin ON forces(admin_id)`
+    ];
+
+    for (const sql of indexes) {
+      try {
+        await db.query(sql);
+      } catch (err) {
+        // Index might already exist, which is fine
+        if (!err.message.includes('Duplicate key name')) {
+          console.warn(`⚠️ Index creation warning: ${err.message}`);
+        }
+      }
+    }
     console.log('✅ All indexes created');
 
     console.log('🎉 Migration completed successfully!');
